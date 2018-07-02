@@ -71,9 +71,9 @@ class MKV(object):
                 logger.info('Processing element %s from SeekHead at position %d', element_name, element_position)
                 stream.seek(element_position)
                 tracks = ebml.parse_element(stream, specs, True, ignore_element_names=['Void', 'CRC-32'])
-                self.video_tracks.extend([VideoTrack.fromelement(t) for t in tracks if t['TrackType'].data == VIDEO_TRACK])
-                self.audio_tracks.extend([AudioTrack.fromelement(t) for t in tracks if t['TrackType'].data == AUDIO_TRACK])
-                self.subtitle_tracks.extend([SubtitleTrack.fromelement(t) for t in tracks if t['TrackType'].data == SUBTITLE_TRACK])
+                self.video_tracks.extend([VideoTrack.fromelement(t, i) for i, t in enumerate(tracks) if t['TrackType'].data == VIDEO_TRACK])
+                self.audio_tracks.extend([AudioTrack.fromelement(t, i) for i, t in enumerate(tracks) if t['TrackType'].data == AUDIO_TRACK])
+                self.subtitle_tracks.extend([SubtitleTrack.fromelement(t, i) for i, t in enumerate(tracks) if t['TrackType'].data == SUBTITLE_TRACK])
             elif element_name == 'Chapters':
                 logger.info('Processing element %s from SeekHead at position %d', element_name, element_position)
                 stream.seek(element_position)
@@ -134,7 +134,7 @@ class Info(object):
 class Track(object):
     """Base object for the Tracks EBML element"""
     def __init__(self, type=None, number=None, name=None, language=None, enabled=None, default=None, forced=None, lacing=None,  # @ReservedAssignment
-                 codec_id=None, codec_name=None):
+                 codec_id=None, codec_name=None, index=None):
         self.type = type
         self.number = number
         self.name = name
@@ -145,9 +145,10 @@ class Track(object):
         self.lacing = lacing
         self.codec_id = codec_id
         self.codec_name = codec_name
+        self.index = index
 
     @classmethod
-    def fromelement(cls, element):
+    def fromelement(cls, element, index):
         """Load the :class:`Track` from an :class:`~enzyme.parsers.ebml.Element`
 
         :param element: the Track element
@@ -165,7 +166,7 @@ class Track(object):
         codec_id = element.get('CodecID')
         codec_name = element.get('CodecName')
         return cls(type=type, number=number, name=name, language=language, enabled=enabled, default=default,
-                   forced=forced, lacing=lacing, codec_id=codec_id, codec_name=codec_name)
+                   forced=forced, lacing=lacing, codec_id=codec_id, codec_name=codec_name, index=index)
 
     def __repr__(self):
         return '<%s [%d, name=%r, language=%s]>' % (self.__class__.__name__, self.number, self.name, self.language)
@@ -190,14 +191,14 @@ class VideoTrack(Track):
         self.aspect_ratio_type = aspect_ratio_type
 
     @classmethod
-    def fromelement(cls, element):
+    def fromelement(cls, element, index):
         """Load the :class:`VideoTrack` from an :class:`~enzyme.parsers.ebml.Element`
 
         :param element: the Track element with :data:`VIDEO_TRACK` TrackType
         :type element: :class:`~enzyme.parsers.ebml.Element`
 
         """
-        videotrack = super(VideoTrack, cls).fromelement(element)
+        videotrack = super(VideoTrack, cls).fromelement(element, index)
         videotrack.width = element['Video'].get('PixelWidth', 0)
         videotrack.height = element['Video'].get('PixelHeight', 0)
         videotrack.interlaced = bool(element['Video'].get('FlagInterlaced', False))
@@ -235,14 +236,14 @@ class AudioTrack(Track):
         self.bit_depth = bit_depth
 
     @classmethod
-    def fromelement(cls, element):
+    def fromelement(cls, element, index):
         """Load the :class:`AudioTrack` from an :class:`~enzyme.parsers.ebml.Element`
 
         :param element: the Track element with :data:`AUDIO_TRACK` TrackType
         :type element: :class:`~enzyme.parsers.ebml.Element`
 
         """
-        audiotrack = super(AudioTrack, cls).fromelement(element)
+        audiotrack = super(AudioTrack, cls).fromelement(element, index)
         audiotrack.sampling_frequency = element['Audio'].get('SamplingFrequency', 8000.0)
         audiotrack.channels = element['Audio'].get('Channels', 1)
         audiotrack.output_sampling_frequency = element['Audio'].get('OutputSamplingFrequency')
